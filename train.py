@@ -14,7 +14,7 @@ NAME = "nodrop_30"
 
 
 wandb.init(
-    project="polarisation-trigger-full",
+    project="polarisation-tagger-full",
     config={
         "hidden_states": 30,
         "dropout_rate": 0.20,
