@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from model import get_model
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import wandb  # noqa E402
 from wandb.keras import WandbMetricsLogger, WandbModelCheckpoint  # noqa E402
@@ -43,32 +44,7 @@ wandb.init(
 )
 
 config = wandb.config
-if config.activation == "gelu":
-    activation = tf.keras.activations.gelu
-elif config.activation == "relu":
-    activation = tf.keras.activations.relu
-else:
-    raise NotImplementedError
-
-
-ins = Input(shape=(None, 10))
-x = Masking(mask_value=0.)(ins)
-for i in range(config.num_blocks):
-    mha = MultiHeadAttention(num_heads=config.num_heads,
-                             key_dim=10, attention_axes=1)(x, x)
-    x = x + mha
-    ln = LayerNormalization()(x)
-    x = Dense(config.hidden_states, activation=tf.keras.activations.gelu)(ln)
-    x = Dropout(config.dropout_rate)(x)
-    x = Dense(10, activation=tf.keras.activations.gelu)(x)
-    x = ln + x
-x = GlobalAveragePooling1D()(x)
-# x = Dense(config.top_out, activation='relu')(x)
-output = Dense(1)(x)
-model = Model(inputs=ins, outputs=output)
-opt = tf.keras.optimizers.Adam(learning_rate=config.learning_rate)
-model.compile(loss='mean_squared_error', optimizer=opt)
-
+model = get_model(config)
 track_data = np.load(f"track_data_{config.max_tracks}.npy")
 target = np.load(f"target_{config.max_tracks}.npy")
 
