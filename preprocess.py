@@ -40,5 +40,5 @@ for val, n_tracks in zip(vals, tqdm(n_tracks_list)):
 target = np.array(target)
 target = (target-target.mean())/target.std()
 track_data = np.array(pad_sequences(track_data, dtype=np.float32))
-np.save(f"track_data_{MAX_TRACKS}.npy", track_data)
-np.save(f"target_{MAX_TRACKS}.npy", target)
+np.save(f"data/track_data_{MAX_TRACKS}.npy", track_data)
+np.save(f"data/target_{MAX_TRACKS}.npy", target)

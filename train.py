@@ -31,7 +31,8 @@ wandb.init(
 
 config = wandb.config
 model = get_model(config)
-train_dataset, test_dataset = get_train_test()
+train_dataset, test_dataset = get_train_test(
+    config.batch_size, config.max_tracks, num_samples_test=200)
 model.fit(
     train_dataset,
     epochs=config.epochs,
