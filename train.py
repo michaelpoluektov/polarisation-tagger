@@ -17,9 +17,8 @@ wandb.init(
     project="polarisation-tagger-full",
     config={
         "hidden_states": 30,
-        "dropout_rate": 0.20,
-        "top_out": 20,
-        "learning_rate": 0.001,
+        "dropout_rate": 0.,
+        "learning_rate": 1e-3,
         "batch_size": 128,
         "num_heads": 8,
         "num_blocks": 6,
@@ -32,7 +31,7 @@ wandb.init(
 config = wandb.config
 model = get_model(config)
 train_dataset, test_dataset = get_train_test(
-    config.batch_size, config.max_tracks, num_samples_test=200)
+    config.batch_size, config.max_tracks, num_samples_test=150)
 model.fit(
     train_dataset,
     epochs=config.epochs,
@@ -41,7 +40,7 @@ model.fit(
         WandbMetricsLogger(log_freq=5),
         WandbModelCheckpoint(
             "models/checkpoint_{epoch:02d}.h5", save_best_only=True),
-        tf.keras.callbacks.ReduceLROnPlateau(factor=0.5),
+        tf.keras.callbacks.ReduceLROnPlateau(factor=0.5, monitor="loss"),
         tf.keras.callbacks.EarlyStopping(
             patience=30, restore_best_weights=True)
     ],
