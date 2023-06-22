@@ -15,6 +15,6 @@ def get_train_test(batch_size: int,
     if shuffle:
         dataset = dataset.shuffle(buffer_size=200000, seed=42)
     dataset = dataset.batch(batch_size)
-    test_dataset = dataset.take(100)
-    train_dataset = dataset.skip(100)
+    test_dataset = dataset.take(num_samples_test)
+    train_dataset = dataset.skip(num_samples_test)
     return train_dataset, test_dataset
