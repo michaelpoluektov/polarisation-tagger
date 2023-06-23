@@ -7,8 +7,8 @@ from tqdm import tqdm  # noqa E402
 
 MAX_TRACKS = 30
 
-tracks = pd.read_parquet("tracks.parquet")
-combinations = pd.read_parquet("combinations.parquet")
+tracks = pd.read_parquet("data/tracks.parquet")
+combinations = pd.read_parquet("data/combinations.parquet")
 tracks["PX"] = tracks["PX"].clip(-5000, 5000)
 tracks["PY"] = tracks["PY"].clip(-5000, 5000)
 tracks["PZ"] = tracks["PZ"].clip(0, 100000)

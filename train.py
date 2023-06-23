@@ -17,7 +17,7 @@ wandb.init(
     project="polarisation-tagger-full",
     config={
         "hidden_states": 30,
-        "dropout_rate": 0.,
+        "dropout_rate": 0.1,
         "learning_rate": 1e-3,
         "batch_size": 128,
         "num_heads": 8,
@@ -30,6 +30,7 @@ wandb.init(
 
 config = wandb.config
 model = get_model(config)
+print(model.count_params())
 train_dataset, test_dataset = get_train_test(
     config.batch_size, config.max_tracks, num_samples_test=150)
 model.fit(
