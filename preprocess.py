@@ -6,7 +6,9 @@ import pandas as pd  # noqa E402
 from tqdm import tqdm  # noqa E402
 
 MAX_TRACKS = 30
-TARGET_COL = "ny"
+TARGET_COL = "c_ID"
+m = "md16"
+
 probcols = ["ProbNNpi", "ProbNNK", "ProbNNp", "ProbNNmu", "ProbNNe"]
 pcols = ["PX", "PY", "PZ"]
 dcols = ["DX", "DY"]
@@ -24,8 +26,8 @@ def clip(df):
     df["DY"] = df["DY"].clip(-12, 12) * 2
 
 
-tracks = pd.read_parquet("data/tracks_md16.parquet")
-combinations = pd.read_parquet("data/combinations_md16.parquet")
+tracks = pd.read_parquet(f"data/tracks_{m}.parquet")
+combinations = pd.read_parquet(f"data/combinations_{m}.parquet")
 clip(tracks)
 tracks[normcols] = ((tracks[normcols] - tracks[normcols].mean()) /
                     tracks[normcols].std()).astype(np.float32)
@@ -61,5 +63,5 @@ def get_arrays(tracks, combinations):
 
 # target, track_data = get_arrays_slow(tracks, combinations)
 target, track_data = get_arrays(tracks, combinations)
-np.save(f"data/track_data_md16_{MAX_TRACKS}.npy", track_data)
-np.save(f"data/target_md16_{MAX_TRACKS}.npy", target)
+np.save(f"data/track_data_{m}_{MAX_TRACKS}.npy", track_data)
+np.save(f"data/target_{m}_{MAX_TRACKS}.npy", target)
