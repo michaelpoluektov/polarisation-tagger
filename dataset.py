@@ -9,8 +9,8 @@ def get_train_test(batch_size: int,
                    num_samples_test: int = 100,
                    shuffle: bool = True
                    ) -> tuple[Dataset, Dataset]:
-    track_data = np.load(f"data/track_data_{max_tracks}.npy")
-    target = np.load(f"data/target_{max_tracks}.npy")
+    track_data = np.load(f"data/track_data_md16_{max_tracks}.npy")
+    target = np.load(f"data/target_md16_{max_tracks}.npy")
     dataset = Dataset.from_tensor_slices((track_data, target))
     if shuffle:
         dataset = dataset.shuffle(buffer_size=200000, seed=42)

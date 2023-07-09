@@ -17,14 +17,14 @@ wandb.init(
     project="polarisation-tagger-full",
     config={
         "hidden_states": 30,
-        "dropout_rate": 0.1,
+        "dropout_rate": 0.,
         "learning_rate": 1e-3,
         "batch_size": 128,
-        "num_heads": 8,
-        "num_blocks": 6,
+        "num_heads": 6,
+        "num_blocks": 5,
         "max_tracks": 30,
         "epochs": 200,
-        "activation": "gelu",
+        "activation": "swish",
     }
 )
 

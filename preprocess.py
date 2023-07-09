@@ -6,39 +6,60 @@ import pandas as pd  # noqa E402
 from tqdm import tqdm  # noqa E402
 
 MAX_TRACKS = 30
+TARGET_COL = "ny"
+probcols = ["ProbNNpi", "ProbNNK", "ProbNNp", "ProbNNmu", "ProbNNe"]
+pcols = ["PX", "PY", "PZ"]
+dcols = ["DX", "DY"]
+normcols = pcols + dcols
+feature_columns = normcols + ["Q"] + probcols
 
-tracks = pd.read_parquet("data/tracks.parquet")
-combinations = pd.read_parquet("data/combinations.parquet")
-tracks["PX"] = tracks["PX"].clip(-5000, 5000)
-tracks["PY"] = tracks["PY"].clip(-5000, 5000)
-tracks["PZ"] = tracks["PZ"].clip(0, 100000)
-tracks["PIDmu"] = tracks["PIDmu"].clip(-20, 100)
-tracks["PIDp"] = tracks["PIDp"].clip(-100, 100)
-tracks["PIDK"] = tracks["PIDK"].clip(-100, 100)
-tracks["DX"] = tracks["DX"].clip(-12, 12)
-tracks["DY"] = tracks["DY"].clip(-12, 12)
-cols = tracks.columns[:10]
-tracks[cols] = ((tracks[cols] - tracks[cols].mean()) /
-                tracks[cols].std()).astype(np.float32)
 
-n_tracks_list = combinations['ntracks'].values
-feature_columns = tracks.columns[:10]
-track_data = []
-vals = combinations["ny"].values
-target = []
-start_idx = 0
-for val, n_tracks in zip(vals, tqdm(n_tracks_list)):
-    a = 0
-    if n_tracks < MAX_TRACKS:
-        df_slice = tracks.iloc[start_idx:start_idx + n_tracks]
-        assert not df_slice.iloc[0]["ntrack"]
-        df_slice = df_slice[df_slice["type"] == 0]
-        a = len(df_slice[df_slice["type"] != 0])
-        track_data.append(df_slice[feature_columns].values)
-        target.append(val)
-    start_idx += (n_tracks - a)
-target = np.array(target)
-target = (target-target.mean())/target.std()
-track_data = np.array(pad_sequences(track_data, dtype=np.float32))
-np.save(f"data/track_data_{MAX_TRACKS}.npy", track_data)
-np.save(f"data/target_{MAX_TRACKS}.npy", target)
+def clip(df):
+    df["PX"] = df["PX"].clip(-5000, 5000)
+    df["PY"] = df["PY"].clip(-5000, 5000)
+    df["PZ"] = df["PZ"].clip(0, 100000)
+    for col in probcols:
+        df[col] = df[col].clip(0, 1) * 2 - 1
+    df["DX"] = df["DX"].clip(-12, 12) * 2
+    df["DY"] = df["DY"].clip(-12, 12) * 2
+
+
+tracks = pd.read_parquet("data/tracks_md16.parquet")
+combinations = pd.read_parquet("data/combinations_md16.parquet")
+clip(tracks)
+tracks[normcols] = ((tracks[normcols] - tracks[normcols].mean()) /
+                    tracks[normcols].std()).astype(np.float32)
+
+
+def get_arrays(tracks, combinations):
+    n_tracks_list = combinations["ntracks"].to_numpy()
+    start_idx = 0
+    zero_tl = []
+    type_arr = (tracks["type"] == 0).to_numpy()
+    for i in n_tracks_list:
+        zero_tl.append(type_arr[start_idx:start_idx+i].sum())
+        start_idx += i
+    zero_tl = np.array(zero_tl)
+    tracks_np = tracks[tracks["type"] ==
+                       0].to_numpy().astype(np.float32)[..., :11]
+    num_compat = len(zero_tl[zero_tl < MAX_TRACKS])
+    track_data = np.zeros((num_compat, MAX_TRACKS, 11), dtype=np.float32)
+    vals = combinations[TARGET_COL].to_numpy()
+    start_idx = 0
+    target = []
+    i = 0
+    for val, n_tracks in zip(vals, zero_tl):
+        if n_tracks < MAX_TRACKS:
+            track_data[i, :n_tracks] = tracks_np[start_idx:start_idx + n_tracks]
+            target.append(val)
+            i += 1
+        start_idx += n_tracks
+    target = np.array(target)
+    target = (target-target.mean())/target.std()
+    return target, track_data
+
+
+# target, track_data = get_arrays_slow(tracks, combinations)
+target, track_data = get_arrays(tracks, combinations)
+np.save(f"data/track_data_md16_{MAX_TRACKS}.npy", track_data)
+np.save(f"data/target_md16_{MAX_TRACKS}.npy", target)

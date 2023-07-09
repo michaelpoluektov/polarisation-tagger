@@ -5,35 +5,41 @@ from keras.layers import (
     MultiHeadAttention,
     Dense,
     Dropout,
-    Flatten,
-    Layer,
     Masking,
-    Add,
     LayerNormalization,
     GlobalAveragePooling1D,
-    Concatenate,
     Input
 )  # noqa E402
 from tensorflow.keras import Model  # noqa E402
 
 
-def get_model(config) -> Model:
-    if config.activation == "gelu":
+NUM_FEATURES = 11
+
+
+def get_activation(ion: str):
+    if ion == "gelu":
         activation = tf.keras.activations.gelu
-    elif config.activation == "relu":
+    elif ion == "relu":
         activation = tf.keras.activations.relu
+    elif ion == "swish":
+        activation = tf.keras.activations.swish
     else:
         raise NotImplementedError
-    ins = Input(shape=(None, 10))
+    return activation
+
+
+def get_model(config) -> Model:
+    activation = get_activation(config.activation)
+    ins = Input(shape=(None, NUM_FEATURES))
     x = Masking(mask_value=0.)(ins)
     for i in range(config.num_blocks):
         mha = MultiHeadAttention(num_heads=config.num_heads,
-                                 key_dim=10, attention_axes=1)(x, x)
+                                 key_dim=NUM_FEATURES, attention_axes=1)(x, x)
         x = x + mha
         ln = LayerNormalization()(x)
         x = Dense(config.hidden_states, activation=activation)(ln)
         x = Dropout(config.dropout_rate)(x)
-        x = Dense(10, activation=activation)(x)
+        x = Dense(NUM_FEATURES, activation=activation)(x)
         x = ln + x
     x = GlobalAveragePooling1D()(x)
     # x = Dense(config.top_out, activation='relu')(x)
@@ -42,3 +48,7 @@ def get_model(config) -> Model:
     opt = tf.keras.optimizers.Adam(learning_rate=config.learning_rate)
     model.compile(loss='mean_squared_error', optimizer=opt)
     return model
+
+
+def get_model_3(config) -> Model:
+    activation = get_activation(config.activation)
