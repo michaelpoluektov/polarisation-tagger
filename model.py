@@ -100,6 +100,11 @@ def get_activation(ion: str):
     return activation
 
 
+def normalise(x):
+    norms = tf.norm(x, axis=-1, keepdims=True)
+    return x / norms
+
+
 def get_model(config) -> Model:
     activation = get_activation(config.activation)
     ins = Input(shape=(None, NUM_FEATURES))
@@ -115,10 +120,12 @@ def get_model(config) -> Model:
         x = ln + x
     x = GlobalAveragePooling1D()(x)
     # x = Dense(config.top_out, activation='relu')(x)
-    output = Dense(1)(x)
+    x = Dense(3)(x)
+    output = normalise(x)
+
     model = Model(inputs=ins, outputs=output)
     opt = tf.keras.optimizers.Adam(learning_rate=config.learning_rate)
-    model.compile(loss='mean_squared_error', optimizer=opt)
+    model.compile(loss=tf.keras.losses.CosineSimilarity(), optimizer=opt)
     return model
 
 

@@ -24,6 +24,8 @@ wandb.init(
         "num_blocks": 5,
         "max_tracks": 30,
         "epochs": 200,
+        "min_tracks": 1,
+        "min_distance": 0.,
         "activation": "swish",
     }
 )
@@ -32,7 +34,12 @@ config = wandb.config
 model = get_model(config)
 print(model.count_params())
 train_dataset, test_dataset = get_train_test(
-    config.batch_size, config.max_tracks, num_samples_test=150)
+    config.batch_size,
+    config.max_tracks,
+    num_samples_test=150,
+    min_distance=config.min_distance,
+    min_tracks=config.min_tracks
+)
 model.fit(
     train_dataset,
     epochs=config.epochs,
@@ -41,7 +48,8 @@ model.fit(
         WandbMetricsLogger(log_freq=5),
         WandbModelCheckpoint(
             "models/checkpoint_{epoch:02d}.h5", save_best_only=True),
-        tf.keras.callbacks.ReduceLROnPlateau(factor=0.5, monitor="loss"),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            factor=0.5, monitor="loss", patience=5),
         tf.keras.callbacks.EarlyStopping(
             patience=30, restore_best_weights=True)
     ],
