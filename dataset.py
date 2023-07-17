@@ -25,14 +25,21 @@ def clip(df):
     df["DY"] = df["DY"].clip(-12, 12) * 2
 
 
-def get_arrays(tracks, combinations, max_tracks, min_distance, min_tracks):
+def get_arrays(tracks,
+               combinations,
+               max_tracks,
+               min_distance,
+               delta_distance,
+               min_tracks
+               ):
     n_tracks_list = combinations["ntracks"].to_numpy()
     start_idx = 0
     zero_tl = []
     type_arr = (tracks["type"] == 0).to_numpy()
-    dx_dy_condition = (
-        (tracks["DX"]**2 + tracks["DY"]**2) > min_distance).to_numpy()
-    and_arr = dx_dy_condition  # & type_arr
+    dx_dy_condition = (np.log(tracks["IPCHI2"]) > min_distance).to_numpy()
+    dx_dy_condition_2 = (
+        np.log(tracks["IPCHI2"]) < min_distance + delta_distance).to_numpy()
+    and_arr = dx_dy_condition & dx_dy_condition_2 & type_arr
     for i in tqdm(n_tracks_list):
         zero_tl.append((and_arr)[
                        start_idx:start_idx+i].sum())
@@ -61,6 +68,7 @@ def get_train_test(batch_size: int,
                    num_samples_test: int = 100,
                    shuffle: bool = True,
                    min_distance: float = 0.05,
+                   delta_distance: float = 7.95,
                    min_tracks: int = 3
                    ) -> tuple[Dataset, Dataset]:
     tracks = pd.read_parquet(f"data/tracks_{m}.parquet")
@@ -69,7 +77,7 @@ def get_train_test(batch_size: int,
     tracks[normcols] = ((tracks[normcols] - tracks[normcols].mean()) /
                         tracks[normcols].std()).astype(np.float32)
     target, track_data = get_arrays(
-        tracks, combinations, max_tracks, min_distance, min_tracks)
+        tracks, combinations, max_tracks, min_distance, delta_distance, min_tracks)
     dataset = Dataset.from_tensor_slices((track_data, target))
     if shuffle:
         dataset = dataset.shuffle(buffer_size=300000, seed=42)

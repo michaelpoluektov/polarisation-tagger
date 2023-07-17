@@ -61,7 +61,7 @@ class ThreeWayAttention(Layer):
 
 
 class PoolingMHA(Layer):
-    def __init__(self, d: int, k: int, h: int, activation="relu"):
+    def __init__(self, d: int, k: int, h: int, activation="relu", **kwargs):
         """
         Arguments:
             d: an integer, input dimension.
@@ -69,7 +69,11 @@ class PoolingMHA(Layer):
             h: an integer, number of heads.
             activation: activation function
         """
-        super(PoolingMHA, self).__init__()
+        super(PoolingMHA, self).__init__(**kwargs)
+        self.d = d
+        self.k = k
+        self.h = h
+        self.activation = activation
         self.mha = MultiHeadAttention(num_heads=h, key_dim=d, attention_axes=1)
         self.ln1 = LayerNormalization(epsilon=1e-6)
         self.ln2 = LayerNormalization(epsilon=1e-6)
@@ -86,6 +90,20 @@ class PoolingMHA(Layer):
         x = self.ff2_1(self.ff2_2(z))
         h = self.ln1(s + self.mha(s, x, x))
         return self.ln2(h + self.ff1_1(self.ff1_2(h)))
+
+    def get_config(self):
+        base_config = super(PoolingMHA, self).get_config()
+        return {
+            **base_config,
+            'd': self.d,
+            'k': self.k,
+            'h': self.h,
+            'activation': self.activation,
+        }
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 def get_activation(ion: str):
@@ -129,5 +147,41 @@ def get_model(config) -> Model:
     return model
 
 
-def get_model_3(config) -> Model:
+def get_set_transformer(config) -> Model:
     activation = get_activation(config.activation)
+    ins = Input(shape=(None, NUM_FEATURES))
+    x = Masking(mask_value=0.)(ins)
+    x = Dense(NUM_FEATURES, activation=activation)(x)
+    for _ in range(config.num_blocks):
+        mha = MultiHeadAttention(
+            num_heads=config.num_heads,
+            key_dim=NUM_FEATURES,
+            attention_axes=1
+        )(x, x)
+        x = x + mha
+        ln = LayerNormalization()(x)
+        x = Dense(config.hidden_states, activation=activation)(ln)
+        x = Dense(NUM_FEATURES, activation=activation)(x)
+        x = ln + x
+    x = PoolingMHA(NUM_FEATURES, config.seed_vectors, config.num_heads)(x)
+    for _ in range(config.num_blocks_2):
+        mha = MultiHeadAttention(
+            num_heads=config.num_heads,
+            key_dim=NUM_FEATURES,
+            attention_axes=1
+        )(x, x)
+        x = x + mha
+        ln = LayerNormalization()(x)
+        x = Dense(config.hidden_states, activation=activation)(ln)
+        x = Dense(NUM_FEATURES, activation=activation)(x)
+        x = ln + x
+    x = LayerNormalization()(x)
+    x = Dense(config.hidden_states_2, activation=activation)(x)
+    x = tf.reshape(x, [-1, config.hidden_states_2 * config.seed_vectors])
+    x = Dense(config.hidden_states_3, activation=activation)(x)
+    x = Dense(3)(x)
+    output = normalise(x)
+    model = Model(inputs=ins, outputs=output)
+    opt = tf.keras.optimizers.Adam(learning_rate=config.learning_rate)
+    model.compile(loss=tf.keras.losses.CosineSimilarity(), optimizer=opt)
+    return model
