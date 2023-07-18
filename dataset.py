@@ -6,7 +6,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.data import Dataset  # noqa E402
 
 TARGET_COL = ["ny", "nx", "nz"]
-m = "mu16"
 
 probcols = ["ProbNNpi", "ProbNNK", "ProbNNp", "ProbNNmu", "ProbNNe"]
 pcols = ["PX", "PY", "PZ"]
@@ -30,7 +29,7 @@ def get_arrays(tracks,
                max_tracks,
                min_distance,
                delta_distance,
-               min_tracks
+               min_tracks,
                ):
     n_tracks_list = combinations["ntracks"].to_numpy()
     start_idx = 0
@@ -63,13 +62,10 @@ def get_arrays(tracks,
     return target, track_data
 
 
-def get_train_test(batch_size: int,
-                   max_tracks: int = 30,
+def get_train_test(config,
                    num_samples_test: int = 100,
                    shuffle: bool = True,
-                   min_distance: float = 0.05,
-                   delta_distance: float = 7.95,
-                   min_tracks: int = 3
+                   m: str = "mu16"
                    ) -> tuple[Dataset, Dataset]:
     tracks = pd.read_parquet(f"data/tracks_{m}.parquet")
     combinations = pd.read_parquet(f"data/combinations_{m}.parquet")
@@ -77,11 +73,24 @@ def get_train_test(batch_size: int,
     tracks[normcols] = ((tracks[normcols] - tracks[normcols].mean()) /
                         tracks[normcols].std()).astype(np.float32)
     target, track_data = get_arrays(
-        tracks, combinations, max_tracks, min_distance, delta_distance, min_tracks)
-    dataset = Dataset.from_tensor_slices((track_data, target))
+        tracks,
+        combinations,
+        config.max_tracks,
+        config.min_distance,
+        config.delta_distance,
+        config.min_tracks,
+    )
+    ns = num_samples_test * config.batch_size
+    t1 = target[:ns]
+    t2 = target[ns:]
+    td1 = track_data[:ns]
+    td2 = track_data[ns:]
+    dataset1 = Dataset.from_tensor_slices((td1, t1))
+    dataset2 = Dataset.from_tensor_slices((td2, t2))
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=300000, seed=42)
-    dataset = dataset.batch(batch_size)
-    test_dataset = dataset.take(num_samples_test)
-    train_dataset = dataset.skip(num_samples_test)
-    return train_dataset, test_dataset
+        dataset1 = dataset1.shuffle(buffer_size=300000, seed=42)
+    if shuffle:
+        dataset2 = dataset2.shuffle(buffer_size=300000, seed=42)
+    dataset1 = dataset1.batch(config.batch_size)
+    dataset2 = dataset2.batch(config.batch_size)
+    return dataset2, dataset1
