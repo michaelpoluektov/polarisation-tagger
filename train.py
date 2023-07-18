@@ -1,9 +1,8 @@
-from model import get_model, get_set_transformer, PoolingMHA
+from model import get_set_transformer
 from dataset import get_train_test
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import wandb  # noqa E402
-from wandb.keras import WandbMetricsLogger, WandbModelCheckpoint  # noqa E402
 import absl.logging  # noqa E402
 absl.logging.set_verbosity(absl.logging.ERROR)
 import tensorflow as tf  # noqa E402
@@ -32,7 +31,7 @@ sweep_config = {
         "max_tracks": {"min": 10, "max": 30},
         "min_tracks": {"value": 3},
         "epochs": {"value": 200},
-        "min_distance": {"min": -3, "max": 1, "distribution": "log_uniform"},
+        "min_distance": {"min": -4, "max": 0, "distribution": "log_uniform"},
         "delta_distance": {"min": 5., "max": 10.},
         "activation": {"value": "swish"}
     }
@@ -71,7 +70,8 @@ def train():
     )
     best_val_loss = min(model.history.history["val_loss"])
     best_train_loss = min(model.history.history["loss"])
-    num_samples = train_dataset.cordinality().numpy() * config.batch_size
+    num_samples = tf.data.experimental.cardinality(
+        train_dataset).numpy() * config.batch_size
     wandb.log({"val": best_val_loss,
                "train": best_train_loss,
                "params": model.count_params(),
