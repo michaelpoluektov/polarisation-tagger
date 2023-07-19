@@ -80,7 +80,8 @@ def get_train_test(config,
         config.delta_distance,
         config.min_tracks,
     )
-    ns = num_samples_test * config.batch_size
+    # ns = num_samples_test * config.batch_size
+    ns = len(target) // 2
     t1 = target[:ns]
     t2 = target[ns:]
     td1 = track_data[:ns]

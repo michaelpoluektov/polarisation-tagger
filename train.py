@@ -16,12 +16,14 @@ class Obj(object):
 
 
 api = wandb.Api()
-sweep = api.sweep("polarisation-tagger/3jifcij2")
+sweep = api.sweep("polarisation-tagger/db3chg7r")
 best_run = sorted(
     sweep.runs, key=lambda run: run.summary.get('md16', float('inf')))[0]
+print(best_run.config)
 best_config = Obj(best_run.config)
 model = get_set_transformer(best_config)
-train_ds, test_ds = get_train_test(best_config, num_samples_test=150, m="mu16")
+train_ds, test_ds = get_train_test(best_config, num_samples_test=(
+    150 * 128) // best_config.batch_size, m="mu16")
 val_ds, _ = get_train_test(best_config, num_samples_test=1, m="md16")
 model.fit(
     train_ds,
@@ -32,7 +34,7 @@ model.fit(
         tf.keras.callbacks.ReduceLROnPlateau(
             factor=0.5, monitor="loss", patience=5),
         tf.keras.callbacks.EarlyStopping(
-            patience=30, restore_best_weights=True)
+            patience=50, restore_best_weights=True)
     ],
     verbose=1
 )

@@ -3,6 +3,7 @@ from dataset import get_train_test
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import wandb  # noqa E402
+from wandb.keras import WandbMetricsLogger  # noqa E402
 import absl.logging  # noqa E402
 absl.logging.set_verbosity(absl.logging.ERROR)
 import tensorflow as tf  # noqa E402
@@ -19,20 +20,21 @@ sweep_config = {
         "goal": "minimize"
     },
     "parameters": {
-        "hidden_states": {"min": 20, "max": 40},
+        "seed": {"min": 0, "max": 1000000},
+        "hidden_states": {"min": 24, "max": 40},
         "hidden_states_2": {"min": 6, "max": 10},
-        "hidden_states_3": {"min": 15, "max": 35},
-        "seed_vectors": {"min": 3, "max": 8},
-        "num_heads": {"min": 1, "max": 6},
+        "hidden_states_3": {"min": 15, "max": 30},
+        "seed_vectors": {"min": 4, "max": 8},
+        "num_heads": {"min": 1, "max": 2},
         "num_blocks": {"min": 1, "max": 5},
         "num_blocks_2": {"min": 1, "max": 5},
         "learning_rate": {"min": -8, "max": -4.3, "distribution": "log_uniform"},
         "batch_size": {"min": 128, "max": 1024},
         "max_tracks": {"min": 10, "max": 30},
         "min_tracks": {"value": 3},
-        "epochs": {"value": 100},
+        "epochs": {"value": 200},
         "min_distance": {"min": -4, "max": 0, "distribution": "log_uniform"},
-        "delta_distance": {"min": 5., "max": 20.},
+        "delta_distance": {"min": 10., "max": 20.},
         "activation": {"value": "swish"}
     }
 }
@@ -41,6 +43,7 @@ sweep_config = {
 def train():
     run = wandb.init()
     config = run.config
+    tf.keras.utils.set_random_seed(config.seed)
     model = get_set_transformer(config)
     train_dataset, test_dataset = get_train_test(
         config,
@@ -64,11 +67,11 @@ def train():
         epochs=config.epochs,
         validation_data=test_dataset,
         callbacks=[
-            # WandbMetricsLogger(log_freq=5),
+            WandbMetricsLogger(log_freq=5),
             tf.keras.callbacks.ReduceLROnPlateau(
                 factor=0.5, monitor="loss", patience=5),
             tf.keras.callbacks.EarlyStopping(
-                patience=30, restore_best_weights=True)
+                patience=30, restore_best_weights=True, min_delta=0.0002, baseline=0.)
         ],
         verbose=1
     )
@@ -84,6 +87,7 @@ def train():
                "params_per_sample": model.count_params() / num_samples,
                "md16": v
                })
+    model.save(f"model_{run.id}.h5")
 
 
 sweep_id = wandb.sweep(sweep_config, project="polarisation-tagger")
