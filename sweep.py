@@ -10,7 +10,7 @@ print(tf.config.list_physical_devices('GPU'))
 
 
 NAME = "nodrop_15"
-PARAM_LIMIT = 1e6
+MAX_PARAM_PER_SAMPLE = 1/5
 
 sweep_config = {
     "method": "random",  # or "grid"
@@ -21,18 +21,18 @@ sweep_config = {
     "parameters": {
         "hidden_states": {"min": 20, "max": 40},
         "hidden_states_2": {"min": 6, "max": 10},
-        "hidden_states_3": {"min": 15, "max": 25},
-        "seed_vectors": {"min": 3, "max": 6},
-        "num_heads": {"min": 2, "max": 4},
-        "num_blocks": {"value": 2},
-        "num_blocks_2": {"value": 2},
-        "learning_rate": {"min": -8, "max": -6.3, "distribution": "log_uniform"},
-        "batch_size": {"value": 128},
+        "hidden_states_3": {"min": 15, "max": 35},
+        "seed_vectors": {"min": 3, "max": 8},
+        "num_heads": {"min": 1, "max": 6},
+        "num_blocks": {"min": 1, "max": 5},
+        "num_blocks_2": {"min": 1, "max": 5},
+        "learning_rate": {"min": -8, "max": -4.3, "distribution": "log_uniform"},
+        "batch_size": {"min": 128, "max": 1024},
         "max_tracks": {"min": 10, "max": 30},
         "min_tracks": {"value": 3},
-        "epochs": {"value": 200},
+        "epochs": {"value": 100},
         "min_distance": {"min": -4, "max": 0, "distribution": "log_uniform"},
-        "delta_distance": {"min": 5., "max": 10.},
+        "delta_distance": {"min": 5., "max": 20.},
         "activation": {"value": "swish"}
     }
 }
@@ -42,14 +42,22 @@ def train():
     run = wandb.init()
     config = run.config
     model = get_set_transformer(config)
-    if model.count_params() > PARAM_LIMIT:
-        run.finish()
-        return
-
     train_dataset, test_dataset = get_train_test(
         config,
-        num_samples_test=150,
+        m="mu16",
+        num_samples_test=(150 * 128) // config.batch_size,
     )
+    val_dataset, _ = get_train_test(
+        config,
+        m="md16",
+        num_samples_test=1
+    )
+    pc = model.count_params()
+    ns = tf.data.experimental.cardinality(train_dataset) * config.batch_size
+    if pc / ns > MAX_PARAM_PER_SAMPLE:
+        print(pc, ns)
+        run.finish()
+        return
 
     model.fit(
         train_dataset,
@@ -68,11 +76,13 @@ def train():
     best_train_loss = min(model.history.history["loss"])
     num_samples = tf.data.experimental.cardinality(
         train_dataset).numpy() * config.batch_size
+    v = model.evaluate(val_dataset)
     wandb.log({"val": best_val_loss,
                "train": best_train_loss,
                "params": model.count_params(),
                "samples": num_samples,
-               "params_per_sample": model.count_params() / num_samples
+               "params_per_sample": model.count_params() / num_samples,
+               "md16": v
                })
 
 

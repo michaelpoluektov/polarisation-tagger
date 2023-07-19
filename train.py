@@ -18,7 +18,7 @@ class Obj(object):
 api = wandb.Api()
 sweep = api.sweep("polarisation-tagger/3jifcij2")
 best_run = sorted(
-    sweep.runs, key=lambda run: run.summary.get('val', float('inf')))[0]
+    sweep.runs, key=lambda run: run.summary.get('md16', float('inf')))[0]
 best_config = Obj(best_run.config)
 model = get_set_transformer(best_config)
 train_ds, test_ds = get_train_test(best_config, num_samples_test=150, m="mu16")
@@ -38,4 +38,4 @@ model.fit(
 )
 i = model.evaluate(val_ds)
 print(i)
-model.save("models/model_v1.h5")
+model.save("models/model_v2.h5")
