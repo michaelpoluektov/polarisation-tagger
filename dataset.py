@@ -24,20 +24,18 @@ def clip(df):
     df["DY"] = df["DY"].clip(-12, 12) * 2
 
 
-def get_arrays(tracks,
+def get_arrays(config,
+               tracks,
                combinations,
-               max_tracks,
-               min_distance,
-               delta_distance,
-               min_tracks,
                ):
     n_tracks_list = combinations["ntracks"].to_numpy()
     start_idx = 0
     zero_tl = []
     type_arr = (tracks["type"] == 0).to_numpy()
-    dx_dy_condition = (np.log(tracks["IPCHI2"]) > min_distance).to_numpy()
+    dx_dy_condition = (np.log(tracks["IPCHI2"])
+                       > config.min_distance).to_numpy()
     dx_dy_condition_2 = (
-        np.log(tracks["IPCHI2"]) < min_distance + delta_distance).to_numpy()
+        np.log(tracks["IPCHI2"]) < config.min_distance + config.delta_distance).to_numpy()
     and_arr = dx_dy_condition & dx_dy_condition_2 & type_arr
     for i in tqdm(n_tracks_list):
         zero_tl.append((and_arr)[
@@ -45,20 +43,21 @@ def get_arrays(tracks,
         start_idx += i
     zero_tl = np.array(zero_tl)
     tracks_np = tracks[and_arr].to_numpy().astype(np.float32)[..., :11]
-    num_compat = len(zero_tl[(zero_tl < max_tracks) & (zero_tl >= min_tracks)])
-    track_data = np.zeros((num_compat, max_tracks, 11), dtype=np.float32)
+    num_compat = len(
+        zero_tl[(zero_tl < config.max_tracks) & (zero_tl >= config.min_tracks)])
+    track_data = np.zeros(
+        (num_compat, config.max_tracks, 11), dtype=np.float32)
     vals = combinations[TARGET_COL].to_numpy()
     start_idx = 0
     target = []
     i = 0
     for val, n_tracks in zip(tqdm(vals), zero_tl):
-        if n_tracks < max_tracks and n_tracks >= min_tracks:
+        if n_tracks < config.max_tracks and n_tracks >= config.min_tracks:
             track_data[i, :n_tracks] = tracks_np[start_idx:start_idx + n_tracks]
             target.append(val)
             i += 1
         start_idx += n_tracks
     target = np.array(target)
-    # target = (target-target.mean())/target.std()
     return target, track_data
 
 
@@ -73,12 +72,9 @@ def get_train_test(config,
     tracks[normcols] = ((tracks[normcols] - tracks[normcols].mean()) /
                         tracks[normcols].std()).astype(np.float32)
     target, track_data = get_arrays(
+        config,
         tracks,
         combinations,
-        config.max_tracks,
-        config.min_distance,
-        config.delta_distance,
-        config.min_tracks,
     )
     # ns = num_samples_test * config.batch_size
     ns = len(target) // 2
